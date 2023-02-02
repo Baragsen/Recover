@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
     }
 
     FILE *forensic = fopen(argv[1] , "r");
+    FILE *output_file = NULL;
 
     if (forensic == NULL)
     {
@@ -32,26 +33,46 @@ int main(int argc, char *argv[])
     BYTE buffer[Block_Size];
     int image_count = 0;
 
+
     //recover the JPEGs
 
     while (fread(buffer, sizeof(BYTE), Block_Size, forensic) == Block_Size)
     {
-        // Check for JPEG's signature
+        // Check for JPEG's signature (SOI)
         if (buffer[0] == 0xff && buffer[1] == 0xd8  && buffer[2] == 0xff && (buffer[3] & 11110000) == 11100000)
         {
-            //write the JPEG filenames
-            sprintf(filename , "%03i.jpg" , image_count);
+            if (image_count == 0)
+            {
+                 //write the JPEG filenames
+                sprintf(filename , "%03i.jpg" , image_count);
 
-            //open the file for writing the buffer and increasing the counter
-            FILE *output_file = fopen(filename , "w");
-            image_count++;
+                //open the file for writing the buffer and increasing the counter
+                FILE *output_file = fopen(filename , "w");
+                image_count++;
 
-            if (output_file != NULL)
-                fwrite(buffer , sizeof(BYTE) , Block_Size , output_file);
+                if (output_file != NULL)
+                    fwrite(&buffer , sizeof(BYTE) , Block_Size , output_file);
+            }
             
-            fclose(output_file);
+            else if (image_count > 0)
+            {
+                fclose(output_file);
+                sprintf(filename , "%03i.jpg" , image_count);
+
+                //open the file for writing the buffer and increasing the counter
+                FILE *output_file = fopen(filename , "w");
+                image_count++;
+
+                if (output_file != NULL)
+                    fwrite(&buffer , sizeof(BYTE) , Block_Size , output_file);
+            }
+
+
         }
+        else if (image_count > 0)
+            fwrite(&buffer, sizeof(BYTE), 512, output_file);
     }
     free(filename);
     fclose(forensic);
+    fclose(output_file);
 }
